@@ -1,2 +1,2 @@
-def test_smoke():
+def test_example():
     assert 1 + 1 == 2
