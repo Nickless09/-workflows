@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  # Python 2 tests run inside an official python:2.7 container
+  # Python 2 tests run inside python:2.7 container
   test-py2:
     name: test (2.7)
     runs-on: ubuntu-latest
@@ -20,7 +20,6 @@ jobs:
 
       - name: Install python deps (Py2)
         run: |
-          # upgrade pip to last supported version for py2 and install pytest that still supports py2
           python -m pip install --upgrade "pip<21" "setuptools<45" wheel
           pip install "pytest==4.6.11"
 
@@ -76,7 +75,7 @@ jobs:
         run: |
           pytest -q -vv
 
-  # Packaging job depends on the Python 3 test (we need the compiled extension)
+  # Packaging job depends on test-py3 (needs compiled extension)
   package:
     needs: test-py3
     runs-on: ubuntu-latest
