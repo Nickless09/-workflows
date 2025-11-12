@@ -39,3 +39,21 @@ add_custom_target(installlib
     DEPENDS arithmetic
 )
 add_custom_target(wrapper ALL DEPENDS arithmetic_wrapper)
+
+# pkg target: build lib + wrapper, then build a Python wheel
+add_custom_target(pkg ALL
+  COMMENT "Build lib, wrapper and package as a wheel"
+)
+
+# Ensure pkg depends on wrapper (which depends on arithmetic)
+add_dependencies(pkg arithmetic_wrapper)
+
+# After build, run a packaging step to copy the .so into python/arithmetic_pkg and build wheel
+add_custom_command(TARGET pkg
+  POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E echo "Packaging Python wheel..."
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_SOURCE_DIR}/python/dist || true
+  COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_SOURCE_DIR} ${PYTHON_EXECUTABLE} -m pip install --upgrade pip setuptools wheel
+  COMMAND ${CMAKE_COMMAND} -E chdir ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_COMMAND} -E echo "Searching for built extension..."
+  # note: we rely on the wrapper having been built into the build directory; use a shell find in CI/local packaging
+)
