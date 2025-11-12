@@ -5,38 +5,56 @@ on:
   pull_request:
 
 jobs:
-  test:
+  # Python 2 tests run inside an official python:2.7 container
+  test-py2:
+    name: test (2.7)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['2.7', '3.11']
-
+    container:
+      image: python:2.7
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Show Python version (debug)
+        run: python --version
+
+      - name: Install python deps (Py2)
+        run: |
+          # upgrade pip to last supported version for py2 and install pytest that still supports py2
+          python -m pip install --upgrade "pip<21" "setuptools<45" wheel
+          pip install "pytest==4.6.11"
+
+      - name: Run pytest (Py2)
+        env:
+          PYTHONPATH: ./python
+        run: |
+          pytest -q -vv
+
+  # Python 3 job builds native extension and runs tests
+  test-py3:
+    name: test (3.11)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
         uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.11'
 
-      - name: Install python deps (Py2 vs Py3)
+      - name: Install python deps (Py3)
         run: |
-          if [ "${{ matrix.python-version }}" = "2.7" ]; then
-            # Use older pip/setuptools and a pytest version that supports Py2
-            python -m pip install --upgrade "pip<21" "setuptools<45" wheel
-            pip install "pytest==4.6.11"
-          else
-            # Python 3: use modern pip and pytest
-            python -m pip install --upgrade pip setuptools wheel
-            pip install pytest
-          fi
+          python -m pip install --upgrade pip setuptools wheel
+          pip install pytest
 
-      - name: Build C/C++ (only on Python 3)
-        if: matrix.python-version == '3.11'
+      - name: Install system build deps
         run: |
           sudo apt-get update -y
           sudo apt-get install -y build-essential cmake git pkg-config
+
+      - name: Build C/C++ (Py3)
+        run: |
           mkdir -p build
           cd build
           cmake .. -DCMAKE_BUILD_TYPE=Release
@@ -52,14 +70,15 @@ jobs:
             fi
           fi
 
-      - name: Run pytest (on both Python versions)
+      - name: Run pytest (Py3)
         env:
           PYTHONPATH: ./python
         run: |
           pytest -q -vv
 
+  # Packaging job depends on the Python 3 test (we need the compiled extension)
   package:
-    needs: test
+    needs: test-py3
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
     steps:
